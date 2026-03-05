@@ -6,13 +6,17 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+# Ambil dari environment variable, fallback ke string langsung untuk debug
+api_key = os.environ.get("GROQ_API_KEY", "").strip()
+client = Groq(api_key=api_key)
 
 riwayat = []
 
 @app.route("/")
 def index():
-    return "Chatbot API aktif! 🤖"
+    # Tampilkan 10 karakter pertama API key untuk debug
+    key_preview = api_key[:10] + "..." if api_key else "KOSONG!"
+    return f"Chatbot API aktif! 🤖 | Key loaded: {key_preview}"
 
 @app.route("/chat", methods=["POST"])
 def chat():
