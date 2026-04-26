@@ -1,51 +1,55 @@
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from groq import Groq
 import os
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
-CORS(app, supports_credentials=True)
+CORS(app)
 
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+if not GROQ_API_KEY:
+    raise Exception("GROQ_API_KEY tidak ditemukan. Set environment variable di Railway.")
+
+client = Groq(api_key=GROQ_API_KEY)
 
 SYSTEM_PROMPT = """
-Kamu adalah asisten AI pribadi milik Awal Marudut Gultom. Tugasmu adalah menjawab pertanyaan pengunjung tentang Awal dan portofolionya.
-
-Berikut informasi lengkap tentang Awal:
+Kamu adalah asisten AI milik Awal Marudut Gultom, seorang cybersecurity researcher & Python developer otodidak. Jawab pertanyaan tentang Awal dan portofolionya.
 
 PROFIL:
 - Nama: Awal Marudut Gultom
-- Lulusan SMK HKBP jurusan Teknik Komputer dan Jaringan
-- Belajar semua skill secara mandiri tanpa les atau kuliah
+- Panggilan: Awal
+- Status: Cybersecurity Enthusiast | Python Developer | Network Engineer
+- Pendidikan: SMK HKBP (Teknik Komputer Jaringan)
+- Metode belajar: Otodidak (tanpa kuliah atau les)
 
-SKILL TEKNIS:
-- Python Development (membuat aplikasi, chatbot, tools)
-- Web Frontend (HTML, CSS, JavaScript)
-- Network Engineering (Layer 2 & Layer 3)
-- Linux System Administration
-- Cyber Security Awareness
-- Mobile App Development menggunakan Kivy & Buildozer (Python ke Android APK)
-- Smartphone Repair (Hardware & Software)
-- Network Troubleshooting
+SKILL UTAMA:
+- Python (Socket, Requests, Threading, Cryptography)
+- IDA Pro / Ghidra (Static Analysis, Reverse Engineering)
+- Web Vulnerability Scanning (SQLi, XSS, Path Traversal)
+- Network Port Scanner (multi‑thread, banner grabbing)
+- Reverse Engineering (Analisis binary terenkripsi AES)
+- Linux / Kali Linux
+- Network Engineering (L2/L3)
+- Firmware Analysis (Huawei, xloader, fastboot)
+- Ethical Hacking Lab (VirtualBox, Metasploitable, DVWA)
 
-PROYEK:
-- Membuat aplikasi kalkulator Android menggunakan Python (Kivy + Buildozer)
-- Membuat tools port scanning berbasis website
-- Membuat website portofolio ini dengan HTML, CSS, JS
-- Membuat chatbot AI yang terpasang di website portofolio ini
+PROYEK CYBERSECURITY:
+1. Advanced Port Scanner + Banner Grabbing – Multi‑thread Python scanner untuk mendeteksi port terbuka dan grabbing banner service. Digunakan di lab Metasploitable 2.
+2. Web Vulnerability Scanner – Mendeteksi SQLi (error based), XSS reflected, dan Path Traversal pada parameter URL. Dilengkapi payload custom.
+3. Analisis Firmware Huawei (AES) – Reverse engineering xloader & fastboot terenkripsi AES menggunakan IDA Pro. Berhasil mengidentifikasi struktur header dan rutin dekripsi.
+4. (Proyek lain) Tools keamanan berbasis Python, termasuk eksplorasi reverse engineering dengan Ghidra.
 
 KONTAK:
 - WhatsApp: +6285810176672
 - YouTube: youtube.com/@poordays
 - Facebook: facebook.com/awalread.1
-- Website: https://awal123-only.github.io/portofolioAwalGultom
+- GitHub: github.com/awal1 (portfolio projects)
 
 INSTRUKSI:
-- Jawab dengan ramah, singkat, dan jelas (maksimal 3-4 kalimat)
-- Kalau ditanya di luar topik Awal, tetap bantu tapi ingatkan pengunjung bisa menghubungi Awal langsung
-- Gunakan bahasa yang sama dengan pengunjung (Indonesia atau Inggris)
-- Jangan pernah mengubah atau mengarang informasi tentang Awal
+- Jawab singkat, padat, maksimal 3 kalimat.
+- Gunakan bahasa Indonesia atau Inggris sesuai pengunjung.
+- Jika ditanya di luar topik Awal, bantu secara umum lalu arahkan untuk menghubungi Awal langsung.
+- Jangan mengarang informasi di luar yang disebutkan.
 """
 
 @app.route("/")
@@ -56,33 +60,24 @@ def index():
 def chat():
     data = request.json
     pesan = data.get("pesan", "")
-
     if not pesan:
         return jsonify({"balasan": "Pesan kosong!"}), 400
-
-    if "riwayat" not in session:
-        session["riwayat"] = []
-
-    session["riwayat"].append({"role": "user", "content": pesan})
-    riwayat = session["riwayat"][-10:]
 
     try:
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
-                *riwayat
+                {"role": "user", "content": pesan}
             ],
             max_tokens=300
         )
         balasan = response.choices[0].message.content
-        session["riwayat"].append({"role": "assistant", "content": balasan})
-        session.modified = True
         return jsonify({"balasan": balasan})
     except Exception as e:
         err = str(e)
         if "429" in err:
-            return jsonify({"balasan": "⏳ Chatbot sedang sibuk, coba lagi beberapa saat ya!"}), 429
+            return jsonify({"balasan": "⏳ Chatbot sedang sibuk, coba lagi ya!"}), 429
         return jsonify({"balasan": f"Error: {err}"}), 500
 
 if __name__ == "__main__":
